@@ -1,21 +1,23 @@
 var http = require('http'),
     fs = require('fs'),
     url = require('url');
+var MongoClient = require('mongodb').MongoClient;
+
 var id = 0;
 var id_match = 0;
 
 var scoreHome = 0;
 var scoreAway = 0;
 
-var game = {
-	"game":{
+var listing = {
+	"games":{
 		"rows":[{
 		}]
 	}
 }
 
 var LineByLineReader = require('line-by-line'),
-    lr = new LineByLineReader('/Users/tiziano/Desktop/progettoultimoBIGDATA/datasetNBA/2006-2007PO.txt');
+    lr = new LineByLineReader('/Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/2006-2007PO.txt');
 
 lr.on('error', function (err) {
     // 'err' contains error object
@@ -58,6 +60,7 @@ lr.on('line', function (line) {
  	content.entry = row[3];
  	content.scoreHome = scoreHome;
  	content.scoreAway = scoreAway;
+ 	try {
 
  	entry = row[3].split("]");
 
@@ -86,13 +89,29 @@ lr.on('line', function (line) {
  	
  	id++;
 
- 	game.game.rows.push(content);
-
+ 	listing.games.rows.push(content);
+	}
+	catch(err) {
+		console.log("missed row");
+	}
 });
 
 lr.on('end', function () {
-	//cancellare il primo elemento del JSONArray.
-	console.log(JSON.stringify(game));
+	MongoClient.connect("mongodb://localhost:27017/NBA", function(err, db) {
+  		if(!err) {
+    		console.log("We are connected");
+  		}
+		if(err) {
+			console.log("non funziona");
+		}
 
-
+		var collection = db.collection('06-07-PO');
+		collection.insert(listing);
+		console.log("finite");
+	});
 });
+
+
+
+
+
