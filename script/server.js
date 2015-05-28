@@ -16,8 +16,10 @@ var listing = {
 	}
 }
 
-var LineByLineReader = require('line-by-line'),
-    lr = new LineByLineReader('/Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/2006-2007PO.txt');
+var LineByLineReader = require('line-by-line');
+var path = "C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/";
+var nameSeason = '06-07-PO';
+var lr = new LineByLineReader(path+);
 
 lr.on('error', function (err) {
     // 'err' contains error object
@@ -105,13 +107,8 @@ lr.on('end', function () {
 			console.log("non funziona");
 		}
 
-		var collection = db.collection('06-07-PO');
+		var collection = db.collection(nameSeason);
 		collection.insert(listing);
 		console.log("finite");
 	});
 });
-
-
-
-
-
