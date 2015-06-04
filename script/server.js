@@ -4,111 +4,129 @@ var http = require('http'),
 var MongoClient = require('mongodb').MongoClient;
 
 var id = 0;
-var id_match = 0;
 
 var scoreHome = 0;
 var scoreAway = 0;
 
-var listing = {
-	"games":{
-		"rows":[{
-		}]
-	}
-}
+var listing = [{}]
 
-var LineByLineReader = require('line-by-line');
-var path = "C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/";
-var nameSeason = '06-07-PO';
-var lr = new LineByLineReader(path+);
+var LineByLineReader = require('line-by-line'),
+    lr = new LineByLineReader('/Users/tiziano/Desktop/NBAProject/datasetNBA/2007-2008.txt');
 
-lr.on('error', function (err) {
+lr.on('error', function(err) {
     // 'err' contains error object
 });
 
-lr.on('line', function (line) {
-	var content = {
-			"id": "",
-			"type": "",
-			"date": "",
-			"lineNumber": "",
-			"id_match": "",
-			"home": "",
-			"away": "",
-			"timeRemaining": "",
-			"entry": "",
-			"scoreHome": "",
-			"scoreAway": ""
-		};
-	var row = line.split("\t");
-	
-	var entry;
-	if (row[1] == 1)
-		id_match++;
-	content.id = id;
-	if (line.indexOf("[") == -1)
-		content.type = "gd";
-	else {
-		entry = row[3].split("]");
-		if (entry[0].length == 4)
-			content.type = "event";
-		else content.type = "point";
-	}
-	content.date = line.substring(0,8);
-	content.lineNumber = row[1];
-	content.id_match = id_match;
-	content.home = line.substring(8,11);
- 	content.away = line.substring(11,14);
- 	content.timeRemaining = row[2];
- 	content.entry = row[3];
- 	content.scoreHome = scoreHome;
- 	content.scoreAway = scoreAway;
- 	try {
+var first = false;
+var match;
+lr.on('line', function(line) {
+    var row = line.split("\t");
+    if (row[1] == 1) {
+    	if (first)
+    		listing.push(match);
+        id++;
+        first = true;
+        match = {
+            "id_match": "",
+            "date": "",
+            "home": "",
+            "away": "",
+            "report": []
+        };
 
- 	entry = row[3].split("]");
+        match.id_match = id;
+        match.date = line.substring(0, 8);
+        match.home = line.substring(8, 11);
+        match.away = line.substring(11, 14);
 
-	var res = entry[0].split(" ");
+    }
 
- 	var points;
+    var reportMatch = {
+        "type": "",
+        "idLineEvent": "",
+        "home": "",
+        "away": "",
+        "timeRemaining": "",
+        "entry": "",
+        "scoreHome": "",
+        "scoreAway": ""
+    };
 
- 	try {
-		if (res[0].substring(1, res[0].length) == content.home) {
-			points = res[1].split("-");
-			scoreHome = points[0];
-			content.scoreHome = scoreHome;
 
-		}
-		else if (res[0].substring(1, res[0].length) == content.away) {
-			points = res[1].split("-");
-			scoreAway = points[0];
-			content.scoreAway = scoreAway;	
-		}
-	}
-	catch(err) {
-		content.scoreHome = scoreHome;
-		content.scoreAway = scoreAway;
-	}
+    var entry;
 
- 	
- 	id++;
+    if (line.indexOf("[") == -1)
+        reportMatch.type = "gameDescription";
+    else {
+        entry = row[3].split("]");
+        if (entry[0].length == 4)
+            reportMatch.type = "generalEvent";
+        else reportMatch.type = "point";
+    }
 
- 	listing.games.rows.push(content);
-	}
-	catch(err) {
-		console.log("missed row");
-	}
+
+    reportMatch.idLineEvent = row[1];
+    reportMatch.home = line.substring(8, 11);
+    reportMatch.away = line.substring(11, 14);
+    reportMatch.timeRemaining = row[2];
+    reportMatch.entry = row[3];
+    reportMatch.scoreHome = scoreHome;
+    reportMatch.scoreAway = scoreAway;
+    match.report.push(reportMatch);
+
+
+    try {
+
+        entry = row[3].split("]");
+
+        var res = entry[0].split(" ");
+
+        var points;
+
+        try {
+            if (res[0].substring(1, res[0].length) == reportMatch.home) {
+                points = res[1].split("-");
+                scoreHome = points[0];
+                reportMatch.scoreHome = scoreHome;
+
+            } else if (res[0].substring(1, res[0].length) == reportMatch.away) {
+                points = res[1].split("-");
+                scoreAway = points[0];
+                reportMatch.scoreAway = scoreAway;
+            }
+        } catch (err) {
+            reportMatch.scoreHome = scoreHome;
+            reportMatch.scoreAway = scoreAway;
+        }
+
+	} 
+
+
+	catch (err) {
+        console.log("missed row");
+    }
 });
 
-lr.on('end', function () {
-	MongoClient.connect("mongodb://localhost:27017/NBA", function(err, db) {
-  		if(!err) {
-    		console.log("We are connected");
-  		}
-		if(err) {
-			console.log("non funziona");
-		}
+lr.on('end', function() {
 
-		var collection = db.collection(nameSeason);
-		collection.insert(listing);
-		console.log("finite");
-	});
+	fs.writeFile("./output.json", JSON.stringify(listing, null, 4), function(err){
+		if(err)
+			console.log(err)
+		else
+			console.log("salvato")
+	})
+
+
+    // MongoClient.connect("mongodb://localhost:27017/NBA", function(err, db) {
+    //     if (!err) {
+    //         console.log("We are connected");
+    //     }
+    //     if (err) {
+    //         console.log("non funziona");
+    //     }
+
+    //     var collection = db.collection('1test03-06');
+    //     collection.insert(listing);
+    //     console.log("finite");
+    // });
 });
