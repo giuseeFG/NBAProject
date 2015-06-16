@@ -9,19 +9,7 @@ var scoreHome = 0;
 var scoreAway = 0;
 
 var listing = [{}]
-var collection;
 
-MongoClient.connect("mongodb://localhost:27017/NBA", function(err, db) {
-    if (!err) {
-        console.log("We are connected");
-    }
-    if (err) {
-        console.log("non funziona");
-    }
-    collection = db.collection('fullDB');
-
-    console.log("finite");
-});
 var LineByLineReader = require('line-by-line'),
     lr = new LineByLineReader('C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011_2012.txt');
 
@@ -34,15 +22,11 @@ var match;
 lr.on('line', function(line) {
     var row = line.split("\t");
     if (row[1] == 1) {
-        if (first) {
-            // insert into MongoDB collection
-            collection.insert(match);
-        }
-
-        first = true;
+        if (first)
+            listing.push(match);
         id++;
-        console.log("id " + id);
-
+        first = true;
+        // creo un "match" ogni volta che incontro un lineNumber == 1
         match = {
             "id_match": "",
             "date": "",
@@ -69,9 +53,9 @@ lr.on('line', function(line) {
         "scoreAway": ""
     };
 
-
     var entry;
 
+    //se non c'è questo carattere: "["
     if (line.indexOf("[") == -1)
         reportMatch.type = "gameDescription";
     else {
@@ -80,7 +64,6 @@ lr.on('line', function(line) {
             reportMatch.type = "generalEvent";
         else reportMatch.type = "point";
     }
-
 
     reportMatch.idLineEvent = row[1];
     reportMatch.home = line.substring(8, 11);
@@ -95,9 +78,7 @@ lr.on('line', function(line) {
     try {
 
         entry = row[3].split("]");
-
         var res = entry[0].split(" ");
-
         var points;
 
         try {
@@ -115,14 +96,17 @@ lr.on('line', function(line) {
             reportMatch.scoreHome = scoreHome;
             reportMatch.scoreAway = scoreAway;
         }
-
+        console.log("match " + match.id_match);
     } catch (err) {
-        console.log("missed row");
+        console.log("missed row " + err + " " + match.id_match);
     }
 });
 
 lr.on('end', function() {
-    // saving into MongoDB the last match read.
-    collection.insert(match);
-    console.log("finish all");
+    fs.writeFile("./2011_2012.json", JSON.stringify(listing, null, 4), function(err){
+        if (err)
+            console.log(err)
+        else
+            console.log("file salvato")
+    })
 });
