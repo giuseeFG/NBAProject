@@ -3,7 +3,7 @@ var http = require('http'),
     url = require('url');
 var MongoClient = require('mongodb').MongoClient;
 
-var id = 6545;
+var id = 0;
 
 var scoreHome = 0;
 var scoreAway = 0;
@@ -23,7 +23,9 @@ MongoClient.connect("mongodb://localhost:27017/NBA", function(err, db) {
     console.log("finite");
 });
 var LineByLineReader = require('line-by-line'),
-    lr = new LineByLineReader('C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011_2012.txt');
+//C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011_2012.txt
+//  /Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/NBADATASET.txt
+    lr = new LineByLineReader('/Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/NBADATASET.txt');
 
 lr.on('error', function(err) {
     // 'err' contains error object
