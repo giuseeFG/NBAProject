@@ -5,7 +5,7 @@ var http = require('http'),
     LineByLineReader = require('line-by-line'),
     //C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011_2012.txt
     //  /Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/NBADATASET.txt
-    lrPlayers = new LineByLineReader('/Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/players2012.txt');
+    lrPlayers = new LineByLineReader('C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/players20112012.txt');
 
 lrPlayers.on('error', function(err) {
     // 'err' contains error object
@@ -47,13 +47,13 @@ function parse(players) {
         if (err) {
             console.log("non funziona");
         }
-        collection = db.collection('fullDB');
+        collection = db.collection('fullDB_little');
 
         console.log("finite");
     });
     //C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011_2012.txt
     //  /Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/NBADATASET.txt
-    lr = new LineByLineReader('/Volumes/MacbookHD/Documenti/MYSTUFF/RM3/2nd/BigData/dataset/datasetNBA/2011-2012.txt');
+    lr = new LineByLineReader('C:/Users/Giuseppe/Desktop/basketProjectBD/basketProjectBD/datasetNBA/2011-2012.txt');
 
     lr.on('error', function(err) {
         // 'err' contains error object
