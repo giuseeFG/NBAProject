@@ -26,7 +26,6 @@ lrPlayers.on('line', function(line) {
 lrPlayers.on('end', function() {
     console.log("finish all players");
     parse(players);
-
 });
 
 
@@ -98,7 +97,7 @@ function parse(players) {
             "entry": "",
             "scoreHome": "",
             "scoreAway": "",
-            "playerName":""
+            "playerName": ""
         };
 
 
@@ -119,9 +118,7 @@ function parse(players) {
                     reportMatch.playerName = players[player].trueName;
                 }
             }
-        }
-        catch (err) {
-        }
+        } catch (err) {}
         var entry;
 
         if (line.indexOf("[") == -1)
