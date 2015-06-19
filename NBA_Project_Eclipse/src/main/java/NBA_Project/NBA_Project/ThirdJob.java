@@ -1,20 +1,11 @@
 package NBA_Project.NBA_Project;
 
-/*
- * JavaWordCount.java
- * Written in 2014 by Sampo Niskanen / Mobile Wellness Solutions MWS Ltd
- * 
- * To the extent possible under law, the author(s) have dedicated all copyright and
- * related and neighboring rights to this software to the public domain worldwide.
- * This software is distributed without any warranty.
- * 
- * See <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
- */
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.commons.collections.BidiMap;
 import org.apache.commons.collections.SortedBidiMap;
 import org.apache.commons.collections.bidimap.DualHashBidiMap;
@@ -33,15 +24,48 @@ import org.codehaus.jettison.json.JSONObject;
 
 import scala.Tuple2;
 
+/**
+ *  Third Job
+ *  Point ratio: top 3 performer, each season.
+ *  
+ *  e.g.	1 0.76 Baston, Maceo		2006/2007 
+ *			2 0.76 Henderson, Alan 		2006/2007 
+ *			3 0.73 Outlaw, Bo 			2006/2007 
+ *			-------------------------------------
+ *			1 0.75 Baston, Maceo 		2007/2008 
+ *			2 0.73 Howard, Dwight	 	2007/2008 
+ *			3 0.71 Bynum, Andrew 		2007/2008 
+ *			-------------------------------------
+ *			1 0.82 Sene, Mouhamed 		2008/2009 
+ *			2 0.72 Jones, Dwayne 		2008/2009 
+ *			3 0.72 Jordan, DeAndre	 	2008/2009
+ *			------------------------------------- 
+ *			. . . . . . .
+ *			. . . . . . .
+ *
+ *  
+ *  @input  JSON format  
+ *  @author Giuseppe Matrella
+ */ 
+
 public class ThirdJob {
+	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
 
-		JavaSparkContext sc = new JavaSparkContext("local", "First Job - Point Ranking");
+		JavaSparkContext sc = new JavaSparkContext("local", "Third Job");
 
 		Configuration config = new Configuration();
 		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
+
+		/**
+		 * This method, applied to "JavaPairRDD<Object, BSONObject>" type object,
+		 * read all MongoDB collection (here named "mongoRDD) and, for each document read,
+		 * returns all "reports" belong to each match, one by one.
+		 * 
+		 *   @return Iterable<String>
+		 */
 
 		JavaRDD<String> reports = mongoRDD.flatMap(new FlatMapFunction<Tuple2<Object, BSONObject>, String>() {
 			private static final long serialVersionUID = 1L;
@@ -64,7 +88,19 @@ public class ThirdJob {
 			}
 		});
 
-		// primo mapper: mi mappo i giocatori e i tiri "missed"
+		/**
+		 * 
+		 * FIRST Map function, applied to "JavaRDD<String>" type object,
+		 * puts the name of the player who missed a shot.
+		 * 
+		 * e.g.  	James, LeBron 2008/2009		-	1
+		 * 			Durant, Kevin 2010/2011		-	1
+		 * 			. . . .
+		 * 
+		 *   @return Tuple2<String, Integer>
+		 *   
+		 */
+
 		JavaPairRDD<String, Integer> missedMap = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 
@@ -73,16 +109,18 @@ public class ThirdJob {
 				String player = "";
 
 				String date = obj.getString("date");
-				String anno = date.substring(0, 4);
-				String mese = date.substring(4, 6);
+				String year = date.substring(0, 4);
+				String month = date.substring(4, 6);
 
-				String stagione = "";
+				String season = "";
 
-				if (Integer.parseInt(mese) < 8)
-					stagione = String.valueOf(Integer.parseInt(anno) - 1).concat("/" + anno);
+				if (Integer.parseInt(month) < 8)
+					season = String.valueOf(Integer.parseInt(year) - 1).concat("/" + year);
 				else
-					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
+					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
+
 				String entry = "";
+
 				try {
 					entry = (String) obj.get("entry");
 				}
@@ -91,11 +129,23 @@ public class ThirdJob {
 				if (entry.contains("Missed")) {
 					player = obj.getString("playerName");
 				}
-				return new Tuple2<>(player.concat(" " + stagione), 1);
+				return new Tuple2<>(player.concat(" " + season), 1);
 			}
 		});
 
-		//secondo mapper: mi mappo i giocatori e i canestri
+		/**
+		 * 
+		 * SECOND Map function, applied to "JavaRDD<String>" type object,
+		 * puts the name of the player who made a shot. I don't care about the value.
+		 * 
+		 * e.g.  	James, LeBron 2008/2009		-	1
+		 * 			Durant, Kevin 2010/2011		-	1
+		 * 			. . . .
+		 * 
+		 *   @return Tuple2<String, Integer>
+		 *   
+		 */
+
 		JavaPairRDD<String, Integer> pointsMap = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 
@@ -103,19 +153,19 @@ public class ThirdJob {
 				JSONObject obj = new JSONObject(s);
 				String player = "";
 				String date = obj.getString("date");
-				String anno = date.substring(0, 4);
-				String mese = date.substring(4, 6);
+				String year = date.substring(0, 4);
+				String month = date.substring(4, 6);
 				int valuePoint = 0;
-				String stagione = "";
+				String season = "";
 
-				if (Integer.parseInt(mese) < 8)
-					stagione = String.valueOf(Integer.parseInt(anno) - 1).concat("/" + anno);
+				if (Integer.parseInt(month) < 8)
+					season = String.valueOf(Integer.parseInt(year) - 1).concat("/" + year);
 				else
-					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
+					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 
 				if (obj.get("type").equals("point")) {
 					String entryOld = (String) obj.get("entry");
-					//controllo se è effettivamente un PUNTO, ovvero un canestro, a prescindere dal valore del canestro.
+					// checking if it's actually a made point, I don't care about the value. 
 					if (entryOld.contains("Free Throw") && entryOld.contains("PTS"))
 						valuePoint = 1;
 					else if (entryOld.contains("3pt") && entryOld.contains("PTS"))
@@ -125,12 +175,23 @@ public class ThirdJob {
 
 					player = obj.getString("playerName");
 				}
-				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
+				return new Tuple2<>(player.concat(" " + season), valuePoint);
 			}
 		});
 
-
-
+		/**
+		 * 
+		 * The Reduce function (missed shots) takes the input values,
+		 * sums them and generates a single output of 
+		 * the word and the final sum.
+		 * 
+		 * e.g.  	(James, LeBron 2008/2009, 34)
+		 * 			(Durant, Kevin 2010/2011, 13)
+		 * 			. . . .
+		 * 
+		 *   @return JavaPairRDD<String, Integer>
+		 *   
+		 */
 
 		JavaPairRDD<String, Integer> countsMissed = missedMap.reduceByKey(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
@@ -140,6 +201,20 @@ public class ThirdJob {
 			}
 		});
 
+		/**
+		 * 
+		 * The Reduce function (made shots) takes the input values,
+		 * sums them and generates a single output of 
+		 * the word and the final sum.
+		 * 
+		 * e.g.  	(James, LeBron 2008/2009, 34)
+		 * 			(Durant, Kevin 2010/2011, 13)
+		 * 			. . . .
+		 * 
+		 *   @return JavaPairRDD<String, Integer>
+		 *   
+		 */
+
 		JavaPairRDD<String, Integer> countsPoints = pointsMap.reduceByKey(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
 			@Override
@@ -147,10 +222,12 @@ public class ThirdJob {
 				return i1 + i2;
 			}
 		});
-
+		// Create a list of Tuple2<String, Integer> that represents the output (missed shots).
 		List<Tuple2<String, Integer>> outputMissed = countsMissed.collect();
+		// Create a list of Tuple2<String, Integer> that represents the output (made shots).
 		List<Tuple2<String, Integer>> outputPoints = countsPoints.collect();
 
+		// Cleaning the output putting each tuple of each output (missed and made shots) in a List<String>
 		List<String> outputMissedString = new LinkedList<String>();
 		List<String> outputPointsString = new LinkedList<String>();
 
@@ -162,9 +239,11 @@ public class ThirdJob {
 			outputPointsString.add(tuple._1() + " " + tuple._2());
 		}
 
+		// Creating a JSONArray containing the output (missed and made shots - it's easier to manage JSONArray type).
 		JSONArray outputMissedJsonArray = new JSONArray(outputMissedString);
 		JSONArray outputPointJsonArray = new JSONArray(outputPointsString);
 
+		// START: managing data and making cleaning operations:
 		Map<String, String> player2misses = new HashMap<String, String>();
 		Map<String, String> player2points = new HashMap<String, String>();
 
@@ -278,6 +357,9 @@ public class ThirdJob {
 		}
 		listaFinale.add((LinkedList<String>) lista);
 
+		// END: managing data and making cleaning operations:
+		
+		// Printing raws one by one, 3 for each season.
 		for (LinkedList<String> list : listaFinale) {
 			for (int i = 0; i < 3; i++) {
 				String[] array = list.toArray(new String[list.size()]);

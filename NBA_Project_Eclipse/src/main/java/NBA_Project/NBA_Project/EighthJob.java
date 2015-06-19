@@ -1,15 +1,5 @@
 package NBA_Project.NBA_Project;
 
-/*
- * JavaWordCount.java
- * Written in 2014 by Sampo Niskanen / Mobile Wellness Solutions MWS Ltd
- * 
- * To the extent possible under law, the author(s) have dedicated all copyright and
- * related and neighboring rights to this software to the public domain worldwide.
- * This software is distributed without any warranty.
- * 
- * See <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
- */
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -32,15 +22,39 @@ import org.codehaus.jettison.json.JSONObject;
 
 import scala.Tuple2;
 
+/**
+ *  Eighth Job
+ *  Point ranking: top 3, each quart, each seasons
+ *  
+ *  e.g.	1ST Bryant, Kobe 2007/2008 		882
+ *			1ST Durant, Kevin 2010/2011 	857
+ *			1ST Durant, Kevin 2009/2010 	852
+ *			2ND Wade, Dwyane 2010/2011 		733
+ *			2ND Bryant, Kobe 2008/2009 		610
+ *  		. . .
+ *  
+ *  @input  JSON format  
+ *  @author Giuseppe Matrella
+ */ 
+
 public class EighthJob {
+	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
 
-		JavaSparkContext sc = new JavaSparkContext("local", "Eidhth Job - Point Ranking: top 3, each quart, all season");
+		JavaSparkContext sc = new JavaSparkContext("local", "Eighth Job");
 
 		Configuration config = new Configuration();
 		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
+
+		/**
+		 * This method, applied to "JavaPairRDD<Object, BSONObject>" type object,
+		 * read all MongoDB collection (here named "mongoRDD) and, for each document read,
+		 * returns all "reports" belong to each match, one by one.
+		 * 
+		 *   @return Iterable<String>
+		 */
 
 		JavaRDD<String> reports = mongoRDD.flatMap(new FlatMapFunction<Tuple2<Object, BSONObject>, String>() {
 			private static final long serialVersionUID = 1L;
@@ -62,11 +76,25 @@ public class EighthJob {
 			}
 		});
 
+		/**
+		 * 
+		 * Map function, applied to "JavaRDD<String>" type object,
+		 * puts the name of the player who made shot, the quart, the season and the relative value.
+		 * 
+		 * e.g.  	1ST		James, LeBron 2008/2009		-	3
+		 * 			3RD		Durant, Kevin 2010/2011		-	2
+		 * 			. . . .
+		 * 
+		 *   @return Tuple2<String, Integer>
+		 *   
+		 */
+
+		
 		JavaPairRDD<String, Integer> ones = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = obj.getString("playerName");
+				String player = "";
 				String date = obj.getString("date");
 				int valuePoint = 0;
 				String timeRemaining = obj.getString("timeRemaining");
@@ -77,29 +105,30 @@ public class EighthJob {
 
 				}
 				catch (Exception e){}
-				String quarto = "0";
+				String quart = "0";
 				if (timeRemaining.contains("-"))
-					quarto = "OT";
+					quart = "OT";
 				else if (minutesRemaining < 12 && minutesRemaining >= 0)
-					quarto = "4TH";
+					quart = "4TH";
 				else if (minutesRemaining < 24 && minutesRemaining >= 12)
-					quarto = "3RD";
+					quart = "3RD";
 				else if (minutesRemaining < 36 && minutesRemaining >= 24)
-					quarto = "2ND";
+					quart = "2ND";
 				else if (minutesRemaining <= 48 && minutesRemaining >= 36)
-					quarto = "1ST";
+					quart = "1ST";
 
-				String anno = date.substring(0, 4);
-				String mese = date.substring(4, 6);
+				String year = date.substring(0, 4);
+				String month = date.substring(4, 6);
 
-				String stagione = "";
+				String season = "";
 
-				if (Integer.parseInt(mese) < 8)
-					stagione = String.valueOf(Integer.parseInt(anno) - 1).concat("/" + anno);
+				if (Integer.parseInt(month) < 8)
+					season = String.valueOf(Integer.parseInt(year) - 1).concat("/" + year);
 				else
-					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
+					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 
 				if (obj.get("type").equals("point")) {
+					player = obj.getString("playerName");
 					String entryOld = (String) obj.get("entry");
 					if (entryOld.contains("Free Throw") && entryOld.contains("PTS")) 
 						valuePoint = 1;
@@ -109,9 +138,23 @@ public class EighthJob {
 						valuePoint = 2;
 
 				}
-				return new Tuple2<>(quarto.concat(" " + player.concat(" " + stagione)), valuePoint);
+				return new Tuple2<>(quart.concat(" " + player.concat(" " + season)), valuePoint);
 			}
 		});
+
+		/**
+		 * 
+		 * The Reduce function takes the input values,
+		 * sums them and generates a single output of 
+		 * the word and the final sum.
+		 * 
+		 * e.g.  	(1ST	James, LeBron 2008/2009, 34)
+		 * 			(3RD	Durant, Kevin 2010/2011, 13)
+		 * 			. . . .
+		 * 
+		 *   @return JavaPairRDD<String, Integer>
+		 *   
+		 */
 
 		JavaPairRDD<String, Integer> countsPointsQuart = ones.reduceByKey(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
@@ -121,15 +164,19 @@ public class EighthJob {
 			}
 		});
 
+		// Create a list of Tuple2<String, Integer> that represents the output.
 		List<Tuple2<String, Integer>> output = countsPointsQuart.collect();
 		
+		// Cleaning the output putting each tuple in a List<String>
 		List<String> outputString = new LinkedList<String>();
 
 		for (Tuple2<String, Integer> tuple : output) {
 			outputString.add(tuple._1() + " " + tuple._2());
 		}
-
+		// Creating a JSONArray containing the output (it's easier to manage).
 		JSONArray outputJsonArray = new JSONArray(outputString);
+		
+		// START: managing data and making cleaning operations:
 		BidiMap finalMap = new DualHashBidiMap();
 
 		for (int i = 0; i < outputJsonArray.length(); i++) {
@@ -140,7 +187,6 @@ public class EighthJob {
 			for (int j = 0; j < tempStringSplitted.length-1; j++) {
 				rest += tempStringSplitted[j].concat(" ");	
 			}
-			// 1st  2008/2009
 			if (rest.length() > 15)
 				finalMap.put(value, rest);
 		}
@@ -193,11 +239,6 @@ public class EighthJob {
 		mapList.add(map09_10);
 		mapList.add(map10_11);
 		mapList.add(map11_12);
-
-		//creo una mappa per ogni quarto
-		// <valore, 1st nome anno>
-		// <valore, 1st nome anno>
-		// <valore, 1st nome anno>
 
 		SortedBidiMap map1st = new DualTreeBidiMap();
 		SortedBidiMap map2nd = new DualTreeBidiMap();
@@ -275,9 +316,13 @@ public class EighthJob {
 			}
 		}
 
+		// END: managing data and making cleaning operations:
+		
+		// Printing raws one by one
 		for (int i = 0; i < listaFinale.size(); i++) {
 			System.out.println(listaFinale.get(i));
 		}
+		
 		sc.stop();
 
 	}

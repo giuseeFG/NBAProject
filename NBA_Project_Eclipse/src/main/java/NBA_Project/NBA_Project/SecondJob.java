@@ -1,17 +1,6 @@
 package NBA_Project.NBA_Project;
 
-/*
- * JavaWordCount.java
- * Written in 2014 by Sampo Niskanen / Mobile Wellness Solutions MWS Ltd
- * 
- * To the extent possible under law, the author(s) have dedicated all copyright and
- * related and neighboring rights to this software to the public domain worldwide.
- * This software is distributed without any warranty.
- * 
- * See <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
- */
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -31,15 +20,36 @@ import org.codehaus.jettison.json.JSONObject;
 
 import scala.Tuple2;
 
+/**
+ *  Second Job
+ *  Point ranking: top scorer for each season
+ *  
+ *  e.g.	1) 2011/2012 Durant, Kevin 1824
+ *			2) 2006/2007 Bryant, Kobe  2538
+ *  		3) . . .
+ *  
+ *  @input  JSON format  
+ *  @author Giuseppe Matrella
+ */ 
+
 public class SecondJob {
+	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
 
-		JavaSparkContext sc = new JavaSparkContext("local", "First Job - Point Ranking");
+		JavaSparkContext sc = new JavaSparkContext("local", "Second Job");
 
 		Configuration config = new Configuration();
 		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
+
+		/**
+		 * This method, applied to "JavaPairRDD<Object, BSONObject>" type object,
+		 * read all MongoDB collection (here named "mongoRDD) and, for each document read,
+		 * returns all "reports" belong to each match, one by one.
+		 * 
+		 *   @return Iterable<String>
+		 */
 
 		JavaRDD<String> reports = mongoRDD.flatMap(new FlatMapFunction<Tuple2<Object, BSONObject>, String>() {
 			private static final long serialVersionUID = 1L;
@@ -61,6 +71,19 @@ public class SecondJob {
 			}
 		});
 
+		/**
+		 * 
+		 * Map function, applied to "JavaRDD<String>" type object,
+		 * puts the name of the player who made shot, the season and the relative value.
+		 * 
+		 * e.g.  	James, LeBron 2008/2009		-	3
+		 * 			Durant, Kevin 2010/2011		-	2
+		 * 			. . . .
+		 * 
+		 *   @return Tuple2<String, Integer>
+		 *   
+		 */
+
 		JavaPairRDD<String, Integer> ones = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 
@@ -69,19 +92,19 @@ public class SecondJob {
 				String player = "";
 				int valuePoint = 0;
 				String date = obj.getString("date");
-				String anno = date.substring(0, 4);
-				String mese = date.substring(4, 6);
+				String year = date.substring(0, 4);
+				String month = date.substring(4, 6);
 
-				String stagione = "";
+				String season = "";
 
-				if (Integer.parseInt(mese) < 8)
-					stagione = String.valueOf(Integer.parseInt(anno) - 1).concat("/" + anno);
+				if (Integer.parseInt(month) < 8)
+					season = String.valueOf(Integer.parseInt(year) - 1).concat("/" + year);
 				else
-					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
+					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 
 				if (obj.get("type").equals("point")) {
 					String entry = (String) obj.get("entry");
-					//calculate point value:
+					// calculate point value:
 					if (entry.contains("Free Throw") && entry.contains("PTS"))
 						valuePoint = 1;
 					else if (entry.contains("3pt") && entry.contains("PTS"))
@@ -90,9 +113,23 @@ public class SecondJob {
 						valuePoint = 2;
 					player = obj.getString("playerName");
 				}
-				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
+				return new Tuple2<>(player.concat(" " + season), valuePoint);
 			}
 		});
+
+		/**
+		 * 
+		 * The Reduce function takes the input values,
+		 * sums them and generates a single output of 
+		 * the word and the final sum.
+		 * 
+		 * e.g.  	(James, LeBron 2008/2009, 34)
+		 * 			(Durant, Kevin 2010/2011, 13)
+		 * 			. . . .
+		 * 
+		 *   @return JavaPairRDD<String, Integer>
+		 *   
+		 */
 
 		JavaPairRDD<String, Integer> counts = ones.reduceByKey(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
@@ -102,15 +139,21 @@ public class SecondJob {
 			}
 		});
 
+		// Create a list of Tuple2<String, Integer> that represents the output.
 		List<Tuple2<String, Integer>> output = counts.collect();
+
+		// Cleaning the output putting each tuple in a List<String>
 		List<String> outputString = new LinkedList<String>();
 		for (Tuple2<String, Integer> tuple : output) {
 			outputString.add(tuple._1() + " " + tuple._2());
 		}
 
+		// Creating a JSONArray containing the output (it's easier to manage).
 		JSONArray outputJsonArray = new JSONArray(outputString);
 
+		// START: managing data and making cleaning operations:
 		BidiMap points2playerSeason = new DualHashBidiMap();
+
 		for (int i = 0; i < outputJsonArray.length(); i++) {
 			String temp2 = (String) outputJsonArray.get(i);
 			String[] tempSplitted = temp2.split(" ");
@@ -142,7 +185,7 @@ public class SecondJob {
 				String pointString = valueTempSplitted[valueTempSplitted.length-1];
 				Integer val = (Integer) points2playerSeason.getKey(value);
 				Integer point = Integer.parseInt(pointString);
-				
+
 				if (val >= point) {
 					season2playerMax.put(year, nameSurname.concat(" " + val));
 				}
@@ -155,9 +198,13 @@ public class SecondJob {
 			String value = (String) season2playerMax.get(obj);
 			finalList.add(key.concat(" ").concat(value));
 		}
+		// END: managing data and making cleaning operations:
 
-		System.out.println(finalList);
-		
+		// Printing raws one by one		
+		for (String s : finalList) {
+			System.out.println(s);
+		}
+
 		sc.stop();
 	}
 }

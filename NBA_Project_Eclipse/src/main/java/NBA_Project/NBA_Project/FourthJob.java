@@ -1,15 +1,5 @@
 package NBA_Project.NBA_Project;
 
-/*
- * JavaWordCount.java
- * Written in 2014 by Sampo Niskanen / Mobile Wellness Solutions MWS Ltd
- * 
- * To the extent possible under law, the author(s) have dedicated all copyright and
- * related and neighboring rights to this software to the public domain worldwide.
- * This software is distributed without any warranty.
- * 
- * See <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
- */
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,15 +20,38 @@ import org.codehaus.jettison.json.JSONObject;
 
 import scala.Tuple2;
 
+/**
+ *  Fourth Job
+ *  Bad boys ranking: top personal foul for each season
+ *  
+ *  e.g.	1 2011/2012 Perkins, Kendrick	197
+ *			2 2006/2007 Stoudemire, Amare  	358
+ *			3 2009/2010 Howard, Dwight  	368
+ *			4 2007/2008 Perkins, Kendrick  	363
+ *			. . . .
+ *  
+ *  @input  JSON format  
+ *  @author Giuseppe Matrella
+ */
+
 public class FourthJob {
+	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
 
-		JavaSparkContext sc = new JavaSparkContext("local", "First Job - Point Ranking");
+		JavaSparkContext sc = new JavaSparkContext("local", "Fourth Job");
 
 		Configuration config = new Configuration();
 		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
+
+		/**
+		 * This method, applied to "JavaPairRDD<Object, BSONObject>" type object,
+		 * read all MongoDB collection (here named "mongoRDD) and, for each document read,
+		 * returns all "reports" belong to each match, one by one.
+		 * 
+		 *   @return Iterable<String>
+		 */
 
 		JavaRDD<String> reports = mongoRDD.flatMap(new FlatMapFunction<Tuple2<Object, BSONObject>, String>() {
 			private static final long serialVersionUID = 1L;
@@ -61,6 +74,19 @@ public class FourthJob {
 			}
 		});
 
+		/**
+		 * 
+		 * Map function, applied to "JavaRDD<String>" type object,
+		 * puts the name of the player who made a personal foul, the season and "1".
+		 * 
+		 * e.g.  	James, LeBron 2008/2009		-	1
+		 * 			Durant, Kevin 2010/2011		-	1
+		 * 			. . . .
+		 * 
+		 *   @return Tuple2<String, Integer>
+		 *   
+		 */
+
 		JavaPairRDD<String, Integer> ones = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 
@@ -68,26 +94,40 @@ public class FourthJob {
 				JSONObject obj = new JSONObject(s);
 				String player = "";
 				String date = obj.getString("date");
-				String anno = date.substring(0, 4);
-				String mese = date.substring(4, 6);
+				String year = date.substring(0, 4);
+				String month = date.substring(4, 6);
 
-				String stagione = "";
+				String season = "";
 
-				if (Integer.parseInt(mese) < 8)
-					stagione = String.valueOf(Integer.parseInt(anno) - 1).concat("/" + anno);
+				if (Integer.parseInt(month) < 8)
+					season = String.valueOf(Integer.parseInt(year) - 1).concat("/" + year);
 				else
-					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
+					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 				try {
 					String entry = (String) obj.get("entry");
 					if (entry.contains("PF)"))
 						player = obj.getString("playerName"); 
 				}
 				catch(Exception ee) {
-					System.out.println("ERRORE " + s);
+					System.out.println("Error " + s);
 				}
-				return new Tuple2<>(player.concat(" " + stagione), 1);
+				return new Tuple2<>(player.concat(" " + season), 1);
 			}
 		});
+
+		/**
+		 * 
+		 * The Reduce function takes the input values,
+		 * sums them and generates a single output of 
+		 * the word and the final sum.
+		 * 
+		 * e.g.  	(James, LeBron 2008/2009, 34)
+		 * 			(Durant, Kevin 2010/2011, 13)
+		 * 			. . . .
+		 * 
+		 *   @return JavaPairRDD<String, Integer>
+		 *   
+		 */
 
 		JavaPairRDD<String, Integer> counts = ones.reduceByKey(new Function2<Integer, Integer, Integer>() {
 			private static final long serialVersionUID = 1L;
@@ -97,16 +137,20 @@ public class FourthJob {
 			}
 		});
 
+		// Create a list of Tuple2<String, Integer> that represents the output.
 		List<Tuple2<String, Integer>> output = counts.collect();
 
+		// Cleaning the output putting each tuple in a List<String>
 		List<String> outputString = new LinkedList<String>();
 
 		for (Tuple2<String, Integer> tuple : output) {
 			outputString.add(tuple._1() + " " + tuple._2());
 		}
 
+		// Creating a JSONArray containing the output (it's easier to manage).
 		JSONArray outputJsonArray = new JSONArray(outputString);
 
+		// START: managing data and making cleaning operations:
 		BidiMap fouls2playerSeason = new DualHashBidiMap();
 
 		for (int i = 0; i < outputJsonArray.length(); i++) {
@@ -157,8 +201,9 @@ public class FourthJob {
 			finalList.add((String) obj + " " + (String) season2playerMax.get(obj));
 		}
 
-		System.out.println("FINALE " + finalList);
+		// END: managing data and making cleaning operations:
 
+		// Printing raws one by one (only 10)
 		for (int i = 0; i < finalList.size(); i++) {
 			System.out.println(i+1 + " " + finalList.get(i));
 		}
