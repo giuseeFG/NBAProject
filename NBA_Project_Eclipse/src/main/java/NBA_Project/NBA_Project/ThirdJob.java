@@ -10,16 +10,11 @@ package NBA_Project.NBA_Project;
  * 
  * See <http://creativecommons.org/publicdomain/zero/1.0/> for full details.
  */
-import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import java.util.logging.Logger;
-
 import org.apache.commons.collections.BidiMap;
 import org.apache.commons.collections.SortedBidiMap;
 import org.apache.commons.collections.bidimap.DualHashBidiMap;
@@ -76,6 +71,7 @@ public class ThirdJob {
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
 				String player = "";
+
 				String date = obj.getString("date");
 				String anno = date.substring(0, 4);
 				String mese = date.substring(4, 6);
@@ -91,26 +87,14 @@ public class ThirdJob {
 					entry = (String) obj.get("entry");
 				}
 				catch (Exception ee) {
-					// a volte dice che non può castare da JSONObject a String perché trova dei documenti con valori "null".
 				}
 				if (entry.contains("Missed")) {
-					String[] eventDetails = entry.split("] ");
-					try {
-						String[] name = eventDetails[1].split(" ");
-						if (name[0].contains(".") && name[1].contains(".")) 
-							player = name[0].concat(name[1]).concat(name[2]);
-						else if (name[0].contains(".")) 
-							player = name[0].concat(name[1]);							
-						else 
-							player = name[0];
-					}
-					catch(Exception e) {
-						System.out.println("errore " + s);
-					}
+					player = obj.getString("playerName");
 				}
 				return new Tuple2<>(player.concat(" " + stagione), 1);
 			}
 		});
+
 		//secondo mapper: mi mappo i giocatori e i canestri
 		JavaPairRDD<String, Integer> pointsMap = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
@@ -139,19 +123,7 @@ public class ThirdJob {
 					else if (entryOld.contains("PTS"))
 						valuePoint = 1;
 
-					String[] eventDetails = entryOld.split("] ");
-					try {
-						String[] name = eventDetails[1].split(" ");
-						if (name[0].contains(".") && name[1].contains(".")) 
-							player = name[0].concat(name[1]).concat(name[2]);
-						else if (name[0].contains(".")) 
-							player = name[0].concat(name[1]);							
-						else 
-							player = name[0];
-					}
-					catch(Exception e) {
-						System.out.println("errore " + s);
-					}
+					player = obj.getString("playerName");
 				}
 				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
 			}
@@ -179,26 +151,42 @@ public class ThirdJob {
 		List<Tuple2<String, Integer>> outputMissed = countsMissed.collect();
 		List<Tuple2<String, Integer>> outputPoints = countsPoints.collect();
 
-		String tempMissed = outputMissed.toString().replace("(","\"");
-		tempMissed = tempMissed.replace(")","\"");
-		JSONArray outputMissedJsonArray = new JSONArray(tempMissed);
+		List<String> outputMissedString = new LinkedList<String>();
+		List<String> outputPointsString = new LinkedList<String>();
 
-		String tempPoint = outputPoints.toString().replace("(","\"");
-		tempPoint = tempPoint.replace(")","\"");
-		JSONArray outputPointJsonArray = new JSONArray(tempPoint);
+		for (Tuple2<String, Integer> tuple : outputMissed) {
+			outputMissedString.add(tuple._1() + " " + tuple._2());
+		}
+
+		for (Tuple2<String, Integer> tuple : outputPoints) {
+			outputPointsString.add(tuple._1() + " " + tuple._2());
+		}
+
+		JSONArray outputMissedJsonArray = new JSONArray(outputMissedString);
+		JSONArray outputPointJsonArray = new JSONArray(outputPointsString);
 
 		Map<String, String> player2misses = new HashMap<String, String>();
 		Map<String, String> player2points = new HashMap<String, String>();
 
 		for (int i = 0; i < outputMissedJsonArray.length(); i++) {
 			String temp = outputMissedJsonArray.getString(i);
-			String[] tempSplitted = temp.split(","); 
-			player2misses.put(tempSplitted[0], tempSplitted[1]);
+			String[] tempSplitted = temp.split(" ");
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
+			}
+			player2misses.put(rest, value);
 		}
 		for (int i = 0; i < outputPointJsonArray.length(); i++) {
 			String temp = outputPointJsonArray.getString(i);
-			String[] tempSplitted = temp.split(","); 
-			player2points.put(tempSplitted[0], tempSplitted[1]);
+			String[] tempSplitted = temp.split(" ");
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
+			}
+			player2points.put(rest, value);
 		}
 
 		BidiMap finalMap = new DualHashBidiMap();
@@ -226,33 +214,40 @@ public class ThirdJob {
 		for (Object s : finalMap.keySet()) {
 			if (((String) s).contains("2006/2007")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map06_07.put(valore, s);
+				if (((String) s).length() > 15)
+					map06_07.put(valore, s);
 			}
 			else if (((String) s).contains("2007/2008")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map07_08.put(valore, s);
+				if (((String) s).length() > 15)
+					map07_08.put(valore, s);
 			}
 			else if (((String) s).contains("2008/2009")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map08_09.put(valore, s);
+				if (((String) s).length() > 15)
+					map08_09.put(valore, s);
 			}
 			else if (((String) s).contains("2009/2010")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map09_10.put(valore, s);
+				if (((String) s).length() > 15)
+					map09_10.put(valore, s);
 			}
 			else if (((String) s).contains("2010/2011")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map10_11.put(valore, s);
+				if (((String) s).length() > 15)
+					map10_11.put(valore, s);
 			}
 			else if (((String) s).contains("2011/2012")){
 				double valore = (double) finalMap.get(s)*(-1);
-				map11_12.put(valore, s);
+				if (((String) s).length() > 15)
+					map11_12.put(valore, s);
 			}
 		}
 
 		List<LinkedList<String>> listaFinale = new LinkedList<LinkedList<String>>();
-		
+
 		List<String> lista = new LinkedList<String>();
+
 		for (Object obj : map06_07.keySet()) {
 			lista.add(String.valueOf(Double.parseDouble(String.valueOf(obj))*(-1)) + " " + map06_07.get(obj));
 		}
@@ -282,7 +277,7 @@ public class ThirdJob {
 			lista.add(String.valueOf(Double.parseDouble(String.valueOf(obj))*(-1)) + " " + map11_12.get(obj));
 		}
 		listaFinale.add((LinkedList<String>) lista);
-		
+
 		for (LinkedList<String> list : listaFinale) {
 			for (int i = 0; i < 3; i++) {
 				String[] array = list.toArray(new String[list.size()]);

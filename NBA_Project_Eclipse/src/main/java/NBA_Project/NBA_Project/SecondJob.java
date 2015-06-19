@@ -52,7 +52,6 @@ public class SecondJob {
 				String reportString = report.toString();
 				jArr = new JSONArray(reportString);
 
-
 				List<String> list = new ArrayList<String>();
 				for (int i=0; i<jArr.length(); i++) {
 					String temp = jArr.getString(i).replace("}", ",\"date\":\"".concat(date.concat("\"}")));
@@ -89,20 +88,7 @@ public class SecondJob {
 						valuePoint = 3;
 					else if (entry.contains("PTS"))
 						valuePoint = 2;
-
-					String[] eventDetails = entry.split("] ");
-					try {
-						String[] name = eventDetails[1].split(" ");
-						if (name[0].contains(".") && name[1].contains(".")) 
-							player = name[0].concat(name[1]).concat(name[2]);
-						else if (name[0].contains(".")) 
-							player = name[0].concat(name[1]);							
-						else 
-							player = name[0];
-					}
-					catch(Exception e) {
-						System.out.println("errore " + s);
-					}
+					player = obj.getString("playerName");
 				}
 				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
 			}
@@ -117,46 +103,61 @@ public class SecondJob {
 		});
 
 		List<Tuple2<String, Integer>> output = counts.collect();
+		List<String> outputString = new LinkedList<String>();
+		for (Tuple2<String, Integer> tuple : output) {
+			outputString.add(tuple._1() + " " + tuple._2());
+		}
 
-		String temp = output.toString().replace("(","\"");
-		temp = temp.replace(")","\"");
-		JSONArray outputJsonArray = new JSONArray(temp);
+		JSONArray outputJsonArray = new JSONArray(outputString);
+
 		BidiMap points2playerSeason = new DualHashBidiMap();
 		for (int i = 0; i < outputJsonArray.length(); i++) {
 			String temp2 = (String) outputJsonArray.get(i);
-			temp2.replace(" ", "\t");
-			temp2.replace(",", "\t");
-			String[] splitted = temp2.split(",");
-			points2playerSeason.put(Integer.valueOf(splitted[1]), splitted[0]);
+			String[] tempSplitted = temp2.split(" ");
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
+			}
+
+			if (rest.length() > 15 && Integer.valueOf(value) < 30000)
+				points2playerSeason.put(Integer.parseInt(value), rest);
 		}
 
 		BidiMap season2playerMax = new DualHashBidiMap();
 
 		for (Object value : points2playerSeason.values()) {
 			String[] rawSplitted = String.valueOf(value).split(" ");
-			String year = rawSplitted[1];
+			String nameSurname = "";
+			for (int j = 0; j < rawSplitted.length-1; j++) {
+				nameSurname += rawSplitted[j].concat(" ");	
+			}
+			String year = rawSplitted[rawSplitted.length-1];
 			if (!season2playerMax.containsKey(year)) {
-				season2playerMax.put(year, rawSplitted[0].concat(" " + points2playerSeason.getKey(value)));
+				season2playerMax.put(year, nameSurname.concat(" " + points2playerSeason.getKey(value)));
 			}
 			else {
 				String valueTemp = (String) season2playerMax.get(year);
 				String[] valueTempSplitted = valueTemp.split(" ");
-				String point = valueTempSplitted[1];
-				if ((int)points2playerSeason.getKey(value) > Integer.parseInt(point)) {
-					
-					season2playerMax.put(year, rawSplitted[0].concat(" " + points2playerSeason.getKey(value)));
+				String pointString = valueTempSplitted[valueTempSplitted.length-1];
+				Integer val = (Integer) points2playerSeason.getKey(value);
+				Integer point = Integer.parseInt(pointString);
+				
+				if (val >= point) {
+					season2playerMax.put(year, nameSurname.concat(" " + val));
 				}
 			}
 		}
-		
-		System.out.println(season2playerMax);
+
 		List<String> finalList = new LinkedList<String>();
 		for (Object obj : season2playerMax.keySet()) {
-			String firstField = (String) season2playerMax.getKey(obj);
-			String secondField = (String) season2playerMax.get(obj);
-			finalList.add(firstField.concat(" ").concat(secondField));
+			String key = (String) obj;
+			String value = (String) season2playerMax.get(obj);
+			finalList.add(key.concat(" ").concat(value));
 		}
 
+		System.out.println(finalList);
+		
 		sc.stop();
 	}
 }

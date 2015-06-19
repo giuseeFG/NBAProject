@@ -44,7 +44,7 @@ public class SeventhJob {
 		JavaSparkContext sc = new JavaSparkContext("local", "First Job - Point Ranking");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_copy");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -73,7 +73,7 @@ public class SeventhJob {
 			private static final long serialVersionUID = 1L;
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = obj.getString("playerName");
 				String date = obj.getString("date");
 				int valuePoint = 0;
 				String timeRemaining = obj.getString("timeRemaining");
@@ -104,19 +104,6 @@ public class SeventhJob {
 					else if (entryOld.contains("PTS"))
 						valuePoint = 1;
 
-					String[] eventDetails = entryOld.split("] ");
-					try {
-						String[] name = eventDetails[1].split(" ");
-						if (name[0].contains(".") && name[1].contains(".")) 
-							player = name[0].concat(name[1]).concat(name[2]);
-						else if (name[0].contains(".")) 
-							player = name[0].concat(name[1]);							
-						else 
-							player = name[0];
-					}
-					catch(Exception e) {
-						System.out.println("errore " + s);
-					}
 				}
 				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
 			}
@@ -131,22 +118,28 @@ public class SeventhJob {
 		});
 
 		List<Tuple2<String, Integer>> outputBuzzerBeater = countsBuzzerBeater.collect();
+		
+		List<String> outputString = new LinkedList<String>();
 
-		String tempBuzzerBeater = outputBuzzerBeater.toString().replace("(","\"");
-		tempBuzzerBeater = tempBuzzerBeater.replace(")","\"");
-		JSONArray outputBuzzerBeaterJsonArray = new JSONArray(tempBuzzerBeater);
+		for (Tuple2<String, Integer> tuple : outputBuzzerBeater) {
+			outputString.add(tuple._1() + " " + tuple._2());
+		}
+
+		JSONArray outputBuzzerBeaterJsonArray = new JSONArray(outputString);
 
 		Map<String, String> player2points = new HashMap<String, String>();
 
-		System.out.println("ASDASDAS " + outputBuzzerBeaterJsonArray);
-
 		for (int i = 0; i < outputBuzzerBeaterJsonArray.length(); i++) {
 			String temp = outputBuzzerBeaterJsonArray.getString(i);
-			String[] tempSplitted = temp.split(","); 
-			player2points.put(tempSplitted[0], tempSplitted[1]);
+			String[] tempSplitted = temp.split(" "); 
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
+			}
+			if (rest.length() > 15)
+				player2points.put(rest, value);
 		}
-
-		System.out.println("NOME e PUNTI " + player2points);
 
 		SortedBidiMap map06_07 = new DualTreeBidiMap();
 		SortedBidiMap map07_08 = new DualTreeBidiMap();

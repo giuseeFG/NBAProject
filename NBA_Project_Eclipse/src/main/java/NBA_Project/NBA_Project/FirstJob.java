@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.Logger;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -89,20 +90,7 @@ public class FirstJob {
 						valuePoint = 3;
 					else if (entry.contains("PTS"))
 						valuePoint = 2;
-
-					String[] eventDetails = entry.split("] ");
-					try {
-						String[] name = eventDetails[1].split(" ");
-						if (name[0].contains(".") && name[1].contains(".")) 
-							player = name[0].concat(name[1]).concat(name[2]);
-						else if (name[0].contains(".")) 
-							player = name[0].concat(name[1]);							
-						else 
-							player = name[0];
-					}
-					catch(Exception e) {
-						System.out.println("errore " + s);
-					}
+					player = obj.getString("playerName");
 				}
 				return new Tuple2<>(player.concat(" " + stagione), valuePoint);
 			}
@@ -117,29 +105,34 @@ public class FirstJob {
 		});
 
 		List<Tuple2<String, Integer>> output = counts.collect();
-		System.out.println(output.toString());
-		String temp = output.toString().replace("(","\"");
-		temp = temp.replace(")","\"");
-		JSONArray outputJsonArray = new JSONArray(temp);
+		List<String> outputString = new LinkedList<String>();
+		for (Tuple2<String, Integer> tuple : output) {
+			outputString.add(tuple._1() + " " + tuple._2());
+		}
+
+		JSONArray outputJsonArray = new JSONArray(outputString);
+
 		Map<Integer, String> points2playerSeason = new TreeMap<Integer, String>(Collections.reverseOrder());
+
 		for (int i = 0; i < outputJsonArray.length(); i++) {
 			String temp2 = (String) outputJsonArray.get(i);
-			temp2.replace(" ", "\t");
-			temp2.replace(",", "\t");
-			String[] splitted = temp2.split(",");
-			points2playerSeason.put(Integer.valueOf(splitted[1]), splitted[0]);
-
+			String[] tempSplitted = temp2.split(" ");
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
+			}
+			if (rest.length() > 15 && Integer.valueOf(value) < 30000)
+				points2playerSeason.put(Integer.parseInt(value), rest);
 		}
 		List<String> finalList = new LinkedList<String>();
 
 		for (Integer i : points2playerSeason.keySet())
 			finalList.add(points2playerSeason.get(i).concat(" " + i));
-		System.out.println("LISTA " + finalList);
 		//PRINT FINAL LIST
 		for (int i = 1; i < 11; i++) {
 			System.out.println(i + " " + finalList.get(i) + "\n");
 		}
-		System.out.println(". . . .");
 		sc.stop();
 	}
 }

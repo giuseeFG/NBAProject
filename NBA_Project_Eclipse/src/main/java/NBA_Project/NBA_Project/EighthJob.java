@@ -13,6 +13,7 @@ package NBA_Project.NBA_Project;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+
 import org.apache.commons.collections.BidiMap;
 import org.apache.commons.collections.SortedBidiMap;
 import org.apache.commons.collections.bidimap.DualHashBidiMap;
@@ -69,21 +70,23 @@ public class EighthJob {
 				String date = obj.getString("date");
 				int valuePoint = 0;
 				String timeRemaining = obj.getString("timeRemaining");
-				int minuteRemaining = 100;
+				int minutesRemaining = 100;
+
 				try {
-					minuteRemaining = Integer.parseInt(timeRemaining.split(":")[1]);
+					minutesRemaining = Integer.parseInt(timeRemaining.split(":")[1]);
+
 				}
 				catch (Exception e){}
 				String quarto = "0";
 				if (timeRemaining.contains("-"))
-					quarto = "OverTime";
-				else if (minuteRemaining <= 12 && minuteRemaining >= 0)
+					quarto = "OT";
+				else if (minutesRemaining < 12 && minutesRemaining >= 0)
 					quarto = "4TH";
-				else if (minuteRemaining <= 24 && minuteRemaining > 12)
+				else if (minutesRemaining < 24 && minutesRemaining >= 12)
 					quarto = "3RD";
-				else if (minuteRemaining <= 36 && minuteRemaining > 24)
+				else if (minutesRemaining < 36 && minutesRemaining >= 24)
 					quarto = "2ND";
-				else if (minuteRemaining <= 48 && minuteRemaining > 36)
+				else if (minutesRemaining <= 48 && minutesRemaining >= 36)
 					quarto = "1ST";
 
 				String anno = date.substring(0, 4);
@@ -119,21 +122,27 @@ public class EighthJob {
 		});
 
 		List<Tuple2<String, Integer>> output = countsPointsQuart.collect();
+		
+		List<String> outputString = new LinkedList<String>();
 
-		System.out.println("ASDAS " + output.toString());
-		String temp = output.toString().replace("(","\"");
-		temp = temp.replace(")","\"");
-		JSONArray outputJsonArray = new JSONArray(temp);
+		for (Tuple2<String, Integer> tuple : output) {
+			outputString.add(tuple._1() + " " + tuple._2());
+		}
 
+		JSONArray outputJsonArray = new JSONArray(outputString);
 		BidiMap finalMap = new DualHashBidiMap();
 
 		for (int i = 0; i < outputJsonArray.length(); i++) {
 			String tempString = outputJsonArray.getString(i);
-			try {
-				finalMap.put(Integer.parseInt(tempString.split(",")[2]), tempString.split(",")[0]+tempString.split(",")[1]);
+			String[] tempStringSplitted = tempString.split(" ");
+			String value = tempStringSplitted[tempStringSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempStringSplitted.length-1; j++) {
+				rest += tempStringSplitted[j].concat(" ");	
 			}
-			catch (Exception e) {
-			}
+			// 1st  2008/2009
+			if (rest.length() > 15)
+				finalMap.put(value, rest);
 		}
 
 		SortedBidiMap map06_07 = new DualTreeBidiMap();
@@ -145,28 +154,34 @@ public class EighthJob {
 
 		for (Object s : finalMap.values()) {
 			if (((String) s).contains("2006/2007")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map06_07.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map06_07.put(valoreInt, s);
 			}
 			else if (((String) s).contains("2007/2008")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map07_08.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map07_08.put(valoreInt, s);
 			}
 			else if (((String) s).contains("2008/2009")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map08_09.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map08_09.put(valoreInt, s);
 			}
 			else if (((String) s).contains("2009/2010")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map09_10.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map09_10.put(valoreInt, s);
 			}
 			else if (((String) s).contains("2010/2011")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map10_11.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map10_11.put(valoreInt, s);
 			}
 			else if (((String) s).contains("2011/2012")){
-				Integer valore = (Integer) finalMap.getKey(s)*(-1);
-				map11_12.put(valore, s);
+				String valore = (String) finalMap.getKey(s);
+				Integer valoreInt = Integer.valueOf(valore)*(-1);
+				map11_12.put(valoreInt, s);
 			}
 		}
 
@@ -202,7 +217,7 @@ public class EighthJob {
 					map3rd.put(map.getKey(value), value);
 				else if (valueColumn[0].equals("4TH"))
 					map4th.put(map.getKey(value), value);
-				else if (valueColumn[0].equals("OverTime"))
+				else if (valueColumn[0].equals("OT"))
 					mapOverTime.put(map.getKey(value), value);
 			}
 		}
@@ -254,7 +269,7 @@ public class EighthJob {
 				listaFinale.add(s);
 				cont4th++;
 			}
-			else if (s.contains("OverTime") && contOverTime < 3) {
+			else if (s.contains("OT") && contOverTime < 3) {
 				listaFinale.add(s);
 				contOverTime++;
 			}
@@ -263,7 +278,6 @@ public class EighthJob {
 		for (int i = 0; i < listaFinale.size(); i++) {
 			System.out.println(listaFinale.get(i));
 		}
-
 		sc.stop();
 
 	}

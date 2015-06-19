@@ -79,22 +79,8 @@ public class FourthJob {
 					stagione = (anno + "/").concat(String.valueOf(Integer.parseInt(anno) + 1));
 				try {
 					String entry = (String) obj.get("entry");
-					if (entry.contains("PF)")) {
-						String[] eventDetails = entry.split("] ");
-						try {
-							
-							String[] name = eventDetails[1].split(" ");
-							if (name[0].contains(".") && name[1].contains(".")) 
-								player = name[0].concat(name[1]).concat(name[2]);
-							else if (name[0].contains(".")) 
-								player = name[0].concat(name[1]);							
-							else 
-								player = name[0];
-						}
-						catch(Exception e) {
-							System.out.println("errore " + s);
-						}
-					}
+					if (entry.contains("PF)"))
+						player = obj.getString("playerName"); 
 				}
 				catch(Exception ee) {
 					System.out.println("ERRORE " + s);
@@ -113,59 +99,68 @@ public class FourthJob {
 
 		List<Tuple2<String, Integer>> output = counts.collect();
 
-		String temp = output.toString().replace("(","\"");
-		temp = temp.replace(")","\"");
-		JSONArray outputJsonArray = new JSONArray(temp);
+		List<String> outputString = new LinkedList<String>();
 
-		System.out.println("falli: " + outputJsonArray);
+		for (Tuple2<String, Integer> tuple : output) {
+			outputString.add(tuple._1() + " " + tuple._2());
+		}
+
+		JSONArray outputJsonArray = new JSONArray(outputString);
 
 		BidiMap fouls2playerSeason = new DualHashBidiMap();
 
 		for (int i = 0; i < outputJsonArray.length(); i++) {
 			String temp2 = (String) outputJsonArray.get(i);
-			temp2.replace(" ", "\t");
-			temp2.replace(",", "\t");
-			String[] splitted = temp2.split(",");
-			if (Integer.valueOf(splitted[1]) < 30000) {
-				// vuol dire che ha beccato il caso in cui c'è la stringa vuota con accanto un numero gigante
-				fouls2playerSeason.put(Integer.valueOf(splitted[1]), splitted[0]);
+			String[] tempSplitted = temp2.split(" ");
+			String value = tempSplitted[tempSplitted.length-1];
+			String rest = "";
+			for (int j = 0; j < tempSplitted.length-1; j++) {
+				rest += tempSplitted[j].concat(" ");	
 			}
+			if (rest.length() > 15 && Integer.valueOf(value) < 30000)
+				fouls2playerSeason.put(value, rest);
 		}
-
-		System.out.println("falli: " + fouls2playerSeason);		
 
 		BidiMap season2playerMax = new DualHashBidiMap();
 
 		for (Object value : fouls2playerSeason.values()) {
+			System.out.println("value " + value);
+
 			String[] rawSplitted = String.valueOf(value).split(" ");
-			String year = rawSplitted[1];
-			if (!season2playerMax.containsKey(year)) {
-				season2playerMax.put(year, rawSplitted[0].concat(" " + fouls2playerSeason.getKey(value)));
+			String season = rawSplitted[rawSplitted.length-1];
+
+			if (!season2playerMax.containsKey(season)) {
+				String nameSurname = "";
+				for (int j = 0; j < rawSplitted.length-1; j++) {
+					nameSurname += rawSplitted[j].concat(" ");	
+				}
+				season2playerMax.put(season, nameSurname.concat(" " + fouls2playerSeason.getKey(value)));
 			}
 			else {
-				String valueTemp = (String) season2playerMax.get(year);
+				String valueTemp = (String) season2playerMax.get(season);
 				String[] valueTempSplitted = valueTemp.split(" ");
-				String point = valueTempSplitted[1];
-				if ((int)fouls2playerSeason.getKey(value) > Integer.parseInt(point)) {
-					season2playerMax.put(year, rawSplitted[0].concat(" " + fouls2playerSeason.getKey(value)));
+				String point = valueTempSplitted[valueTempSplitted.length-1];
+
+				if (Integer.parseInt((String)fouls2playerSeason.getKey(value)) > Integer.parseInt(point)) {
+					String nameSurname = "";
+					for (int j = 0; j < rawSplitted.length-1; j++) {
+						nameSurname += rawSplitted[j].concat(" ");	
+					}
+					season2playerMax.put(season, nameSurname.concat(" " + fouls2playerSeason.getKey(value)));
 				}
 			}
 		}
 
-		System.out.println(season2playerMax);
 		List<String> finalList = new LinkedList<String>();
 
 		for (Object obj : season2playerMax.keySet()) {
-			System.out.println("OBJ " + (String) obj);
-			System.out.println("value " + (String) season2playerMax.get(obj));
 			finalList.add((String) obj + " " + (String) season2playerMax.get(obj));
 		}
 
 		System.out.println("FINALE " + finalList);
-		
+
 		for (int i = 0; i < finalList.size(); i++) {
 			System.out.println(i+1 + " " + finalList.get(i));
-			
 		}
 
 		sc.stop();
