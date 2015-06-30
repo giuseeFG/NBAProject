@@ -35,11 +35,11 @@ import scala.Tuple2;
 public class _2Job {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
-
+		long startTime = System.currentTimeMillis();
 		JavaSparkContext sc = new JavaSparkContext("local", "Second Job");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -89,7 +89,7 @@ public class _2Job {
 
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = "null";
 				int valuePoint = 0;
 				String date = obj.getString("date");
 				String year = date.substring(0, 4);
@@ -158,13 +158,13 @@ public class _2Job {
 			String temp2 = (String) outputJsonArray.get(i);
 			String[] tempSplitted = temp2.split(" ");
 			String value = tempSplitted[tempSplitted.length-1];
-			String rest = "";
+			String player_season = "";
 			for (int j = 0; j < tempSplitted.length-1; j++) {
-				rest += tempSplitted[j].concat(" ");	
+				player_season += tempSplitted[j].concat(" ");	
 			}
 
-			if (rest.length() > 15 && Integer.valueOf(value) < 30000)
-				points2playerSeason.put(Integer.parseInt(value), rest);
+			if (!player_season.contains("null"))
+				points2playerSeason.put(Integer.parseInt(value), player_season);
 		}
 
 		BidiMap season2playerMax = new DualHashBidiMap();
@@ -206,5 +206,8 @@ public class _2Job {
 		}
 
 		sc.stop();
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		int seconds = (int) (estimatedTime / 1000) ;
+		System.out.println("TIME ELAPSED: " + seconds + "s.");
 	}
 }

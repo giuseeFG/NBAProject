@@ -51,11 +51,11 @@ import scala.Tuple2;
 public class _3Job {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
-
+		long startTime = System.currentTimeMillis();
 		JavaSparkContext sc = new JavaSparkContext("local", "Third Job");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -106,7 +106,7 @@ public class _3Job {
 
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = "null";
 
 				String date = obj.getString("date");
 				String year = date.substring(0, 4);
@@ -119,15 +119,12 @@ public class _3Job {
 				else
 					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 
-				String entry = "";
-
-				try {
-					entry = (String) obj.get("entry");
-				}
-				catch (Exception ee) {
-				}
-				if (entry.contains("Missed")) {
-					player = obj.getString("playerName");
+				//TODO considerare numero tiri
+				if (obj.get("type").equals("generalEvent")) {
+					String entry = (String) obj.get("entry");
+					if (entry.contains("Missed") || entry.contains("missed")) {
+						player = obj.getString("playerName");
+					}
 				}
 				return new Tuple2<>(player.concat(" " + season), 1);
 			}
@@ -151,7 +148,7 @@ public class _3Job {
 
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = "null";
 				String date = obj.getString("date");
 				String year = date.substring(0, 4);
 				String month = date.substring(4, 6);
@@ -172,7 +169,6 @@ public class _3Job {
 						valuePoint = 1;
 					else if (entryOld.contains("PTS"))
 						valuePoint = 1;
-
 					player = obj.getString("playerName");
 				}
 				return new Tuple2<>(player.concat(" " + season), valuePoint);
@@ -239,6 +235,9 @@ public class _3Job {
 			outputPointsString.add(tuple._1() + " " + tuple._2());
 		}
 
+		//System.out.println(outputMissedString);
+		//System.out.println(outputPointsString);
+
 		// Creating a JSONArray containing the output (missed and made shots - it's easier to manage JSONArray type).
 		JSONArray outputMissedJsonArray = new JSONArray(outputMissedString);
 		JSONArray outputPointJsonArray = new JSONArray(outputPointsString);
@@ -251,21 +250,23 @@ public class _3Job {
 			String temp = outputMissedJsonArray.getString(i);
 			String[] tempSplitted = temp.split(" ");
 			String value = tempSplitted[tempSplitted.length-1];
-			String rest = "";
+			String name_season = "";
 			for (int j = 0; j < tempSplitted.length-1; j++) {
-				rest += tempSplitted[j].concat(" ");	
+				name_season += tempSplitted[j].concat(" ");	
 			}
-			player2misses.put(rest, value);
+			if (!name_season.contains("null"))
+				player2misses.put(name_season, value);
 		}
 		for (int i = 0; i < outputPointJsonArray.length(); i++) {
 			String temp = outputPointJsonArray.getString(i);
 			String[] tempSplitted = temp.split(" ");
 			String value = tempSplitted[tempSplitted.length-1];
-			String rest = "";
+			String name_season = "";
 			for (int j = 0; j < tempSplitted.length-1; j++) {
-				rest += tempSplitted[j].concat(" ");	
+				name_season += tempSplitted[j].concat(" ");	
 			}
-			player2points.put(rest, value);
+			if (!name_season.contains("null"))
+				player2points.put(name_season, value);
 		}
 
 		BidiMap finalMap = new DualHashBidiMap();
@@ -277,8 +278,9 @@ public class _3Job {
 					double sum = Double.parseDouble(player2points.get(s)) + Integer.parseInt(player2misses.get(s));
 					double missed = Double.parseDouble(player2points.get(s));
 					double ratio = missed/sum;
-
-					finalMap.put(s, ratio);
+					
+					if (sum > 300)
+						finalMap.put(s, ratio);
 				}
 			}
 		}
@@ -293,33 +295,33 @@ public class _3Job {
 		for (Object s : finalMap.keySet()) {
 			if (((String) s).contains("2006/2007")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map06_07.put(valore, s);
+				//if (((String) s).length() > 15)
+				map06_07.put(valore, s);
 			}
 			else if (((String) s).contains("2007/2008")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map07_08.put(valore, s);
+				//if (((String) s).length() > 15) 
+				map07_08.put(valore, s);
 			}
 			else if (((String) s).contains("2008/2009")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map08_09.put(valore, s);
+				//if (((String) s).length() > 15)
+				map08_09.put(valore, s);
 			}
 			else if (((String) s).contains("2009/2010")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map09_10.put(valore, s);
+				//if (((String) s).length() > 15)
+				map09_10.put(valore, s);
 			}
 			else if (((String) s).contains("2010/2011")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map10_11.put(valore, s);
+				//if (((String) s).length() > 15)
+				map10_11.put(valore, s);
 			}
 			else if (((String) s).contains("2011/2012")){
 				double valore = (double) finalMap.get(s)*(-1);
-				if (((String) s).length() > 15)
-					map11_12.put(valore, s);
+				//if (((String) s).length() > 15)
+				map11_12.put(valore, s);
 			}
 		}
 
@@ -358,17 +360,20 @@ public class _3Job {
 		listaFinale.add((LinkedList<String>) lista);
 
 		// END: managing data and making cleaning operations:
-		
+
 		// Printing raws one by one, 3 for each season.
+		System.out.println("LISTA FINALE " + listaFinale);
 		for (LinkedList<String> list : listaFinale) {
 			for (int i = 0; i < 3; i++) {
 				String[] array = list.toArray(new String[list.size()]);
 				System.out.println(i+1 + " " + array[i]);
 			}
-			System.out.println("\n");
 			System.out.println("--------------------");
-			System.out.println("\n");
 		}
+
 		sc.stop();
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		int seconds = (int) (estimatedTime / 1000) ;
+		System.out.println("TIME ELAPSED: " + seconds + "s.");
 	}
 }

@@ -40,11 +40,11 @@ import scala.Tuple2;
 public class _8Job {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
-
+		long startTime = System.currentTimeMillis();
 		JavaSparkContext sc = new JavaSparkContext("local", "Eighth Job");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -89,7 +89,7 @@ public class _8Job {
 		 *   
 		 */
 
-		
+
 		JavaPairRDD<String, Integer> ones = reports.mapToPair(new PairFunction<String, String, Integer>() {
 			private static final long serialVersionUID = 1L;
 			public Tuple2<String, Integer> call(String s) throws JSONException {
@@ -106,7 +106,7 @@ public class _8Job {
 				}
 				catch (Exception e){}
 				String quart = "0";
-				if (timeRemaining.contains("-"))
+				if (timeRemaining.contains("-00"))
 					quart = "OT";
 				else if (minutesRemaining < 12 && minutesRemaining >= 0)
 					quart = "4TH";
@@ -138,7 +138,11 @@ public class _8Job {
 						valuePoint = 2;
 
 				}
-				return new Tuple2<>(quart.concat(" " + player.concat(" " + season)), valuePoint);
+
+				String string2map = quart.concat(" " + player.concat(" " + season));
+				if (string2map.length() < 16)
+					string2map = "null";
+				return new Tuple2<>(string2map, valuePoint);
 			}
 		});
 
@@ -166,16 +170,17 @@ public class _8Job {
 
 		// Create a list of Tuple2<String, Integer> that represents the output.
 		List<Tuple2<String, Integer>> output = countsPointsQuart.collect();
-		
+
 		// Cleaning the output putting each tuple in a List<String>
 		List<String> outputString = new LinkedList<String>();
 
 		for (Tuple2<String, Integer> tuple : output) {
 			outputString.add(tuple._1() + " " + tuple._2());
 		}
+
 		// Creating a JSONArray containing the output (it's easier to manage).
 		JSONArray outputJsonArray = new JSONArray(outputString);
-		
+
 		// START: managing data and making cleaning operations:
 		BidiMap finalMap = new DualHashBidiMap();
 
@@ -183,12 +188,12 @@ public class _8Job {
 			String tempString = outputJsonArray.getString(i);
 			String[] tempStringSplitted = tempString.split(" ");
 			String value = tempStringSplitted[tempStringSplitted.length-1];
-			String rest = "";
+			String player_season = "";
 			for (int j = 0; j < tempStringSplitted.length-1; j++) {
-				rest += tempStringSplitted[j].concat(" ");	
+				player_season += tempStringSplitted[j].concat(" ");	
 			}
-			if (rest.length() > 15)
-				finalMap.put(value, rest);
+			if (!player_season.contains("null"))
+				finalMap.put(value, player_season);
 		}
 
 		SortedBidiMap map06_07 = new DualTreeBidiMap();
@@ -317,13 +322,15 @@ public class _8Job {
 		}
 
 		// END: managing data and making cleaning operations:
-		
+
 		// Printing raws one by one
 		for (int i = 0; i < listaFinale.size(); i++) {
 			System.out.println(listaFinale.get(i));
 		}
-		
-		sc.stop();
 
+		sc.stop();
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		int seconds = (int) (estimatedTime / 1000) ;
+		System.out.println("TIME ELAPSED: " + seconds + "s.");
 	}
 }

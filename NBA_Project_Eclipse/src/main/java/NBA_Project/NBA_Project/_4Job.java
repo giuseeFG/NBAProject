@@ -37,11 +37,11 @@ import scala.Tuple2;
 public class _4Job {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
-
+		long startTime = System.currentTimeMillis();
 		JavaSparkContext sc = new JavaSparkContext("local", "Fourth Job");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -92,7 +92,7 @@ public class _4Job {
 
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = "null";
 				String date = obj.getString("date");
 				String year = date.substring(0, 4);
 				String month = date.substring(4, 6);
@@ -157,40 +157,35 @@ public class _4Job {
 			String temp2 = (String) outputJsonArray.get(i);
 			String[] tempSplitted = temp2.split(" ");
 			String value = tempSplitted[tempSplitted.length-1];
-			String rest = "";
+			String name_season = "";
 			for (int j = 0; j < tempSplitted.length-1; j++) {
-				rest += tempSplitted[j].concat(" ");	
+				name_season += tempSplitted[j].concat(" ");	
 			}
-			if (rest.length() > 15 && Integer.valueOf(value) < 30000)
-				fouls2playerSeason.put(value, rest);
+			if (!name_season.contains("null")) {
+				fouls2playerSeason.put(value, name_season);
+			}
 		}
 
 		BidiMap season2playerMax = new DualHashBidiMap();
 
 		for (Object value : fouls2playerSeason.values()) {
-			System.out.println("value " + value);
-
 			String[] rawSplitted = String.valueOf(value).split(" ");
 			String season = rawSplitted[rawSplitted.length-1];
-
-			if (!season2playerMax.containsKey(season)) {
-				String nameSurname = "";
-				for (int j = 0; j < rawSplitted.length-1; j++) {
-					nameSurname += rawSplitted[j].concat(" ");	
-				}
-				season2playerMax.put(season, nameSurname.concat(" " + fouls2playerSeason.getKey(value)));
+			String nameSurname = "";
+			for (int j = 0; j < rawSplitted.length-1; j++) {
+				nameSurname += rawSplitted[j].concat(" ");	
 			}
-			else {
-				String valueTemp = (String) season2playerMax.get(season);
-				String[] valueTempSplitted = valueTemp.split(" ");
-				String point = valueTempSplitted[valueTempSplitted.length-1];
-
-				if (Integer.parseInt((String)fouls2playerSeason.getKey(value)) > Integer.parseInt(point)) {
-					String nameSurname = "";
-					for (int j = 0; j < rawSplitted.length-1; j++) {
-						nameSurname += rawSplitted[j].concat(" ");	
-					}
+			if (nameSurname.length() > 5) {
+				if (!season2playerMax.containsKey(season)) {
 					season2playerMax.put(season, nameSurname.concat(" " + fouls2playerSeason.getKey(value)));
+				}
+				else {
+					String valueTemp = (String) season2playerMax.get(season);
+					String[] valueTempSplitted = valueTemp.split(" ");
+					String point = valueTempSplitted[valueTempSplitted.length-1];
+					if (Integer.parseInt((String)fouls2playerSeason.getKey(value)) > Integer.parseInt(point)) {
+						season2playerMax.put(season, nameSurname.concat(" " + fouls2playerSeason.getKey(value)));
+					}
 				}
 			}
 		}
@@ -209,5 +204,8 @@ public class _4Job {
 		}
 
 		sc.stop();
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		int seconds = (int) (estimatedTime / 1000) ;
+		System.out.println("TIME ELAPSED: " + seconds + "s.");
 	}
 }

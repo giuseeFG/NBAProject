@@ -38,11 +38,11 @@ import scala.Tuple2;
 public class _7Job {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
-
+		long startTime = System.currentTimeMillis();
 		JavaSparkContext sc = new JavaSparkContext("local", "Seventh Job");
 
 		Configuration config = new Configuration();
-		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB");
+		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
 
 		JavaPairRDD<Object, BSONObject> mongoRDD = sc.newAPIHadoopRDD(config, com.mongodb.hadoop.MongoInputFormat.class, Object.class, BSONObject.class);
 
@@ -91,7 +91,7 @@ public class _7Job {
 			private static final long serialVersionUID = 1L;
 			public Tuple2<String, Integer> call(String s) throws JSONException {
 				JSONObject obj = new JSONObject(s);
-				String player = "";
+				String player = "null";
 				String date = obj.getString("date");
 				int valuePoint = 0;
 				String timeRemaining = obj.getString("timeRemaining");
@@ -169,12 +169,12 @@ public class _7Job {
 			String temp = outputBuzzerBeaterJsonArray.getString(i);
 			String[] tempSplitted = temp.split(" "); 
 			String value = tempSplitted[tempSplitted.length-1];
-			String rest = "";
+			String player_season = "";
 			for (int j = 0; j < tempSplitted.length-1; j++) {
-				rest += tempSplitted[j].concat(" ");	
+				player_season += tempSplitted[j].concat(" ");	
 			}
-			if (rest.length() > 15)
-				player2points.put(rest, value);
+			if (!player_season.contains("null"))
+				player2points.put(player_season, value);
 		}
 
 		SortedBidiMap map06_07 = new DualTreeBidiMap();
@@ -259,5 +259,8 @@ public class _7Job {
 
 
 		sc.stop();
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		int seconds = (int) (estimatedTime / 1000) ;
+		System.out.println("TIME ELAPSED: " + seconds + "s.");
 	}
 }
