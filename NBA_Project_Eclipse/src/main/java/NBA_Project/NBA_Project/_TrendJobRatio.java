@@ -27,32 +27,17 @@ import scala.Tuple2;
 /**
  *  Third Job
  *  Point ratio: top 3 performer, each season.
- *  
- *  e.g.	1 0.76 Baston, Maceo		2006/2007 
- *			2 0.76 Henderson, Alan 		2006/2007 
- *			3 0.73 Outlaw, Bo 			2006/2007 
- *			-------------------------------------
- *			1 0.75 Baston, Maceo 		2007/2008 
- *			2 0.73 Howard, Dwight	 	2007/2008 
- *			3 0.71 Bynum, Andrew 		2007/2008 
- *			-------------------------------------
- *			1 0.82 Sene, Mouhamed 		2008/2009 
- *			2 0.72 Jones, Dwayne 		2008/2009 
- *			3 0.72 Jordan, DeAndre	 	2008/2009
- *			------------------------------------- 
- *			. . . . . . .
- *			. . . . . . .
  *
  *  
  *  @input  JSON format  
  *  @author Giuseppe Matrella
  */ 
 
-public class _3Job {
+public class _TrendJobRatio {
 	@SuppressWarnings("resource")
 	public static void main(String[] args) throws JSONException {
 		long startTime = System.currentTimeMillis();
-		JavaSparkContext sc = new JavaSparkContext("local", "Third Job");
+		JavaSparkContext sc = new JavaSparkContext("local", "TrendJobRatio");
 
 		Configuration config = new Configuration();
 		config.set("mongo.input.uri", "mongodb://127.0.0.1:27017/NBA.fullDB_new");
@@ -119,6 +104,7 @@ public class _3Job {
 				else
 					season = (year + "/").concat(String.valueOf(Integer.parseInt(year) + 1));
 
+				//TODO considerare numero tiri
 				if (obj.get("type").equals("generalEvent")) {
 					String entry = (String) obj.get("entry");
 					if (entry.contains("Missed") || entry.contains("missed")) {
@@ -277,7 +263,7 @@ public class _3Job {
 					double sum = Double.parseDouble(player2points.get(s)) + Integer.parseInt(player2misses.get(s));
 					double missed = Double.parseDouble(player2points.get(s));
 					double ratio = missed/sum;
-					
+
 					if (sum > 300)
 						finalMap.put(s, ratio);
 				}
@@ -294,32 +280,26 @@ public class _3Job {
 		for (Object s : finalMap.keySet()) {
 			if (((String) s).contains("2006/2007")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15)
 				map06_07.put(valore, s);
 			}
 			else if (((String) s).contains("2007/2008")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15) 
 				map07_08.put(valore, s);
 			}
 			else if (((String) s).contains("2008/2009")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15)
 				map08_09.put(valore, s);
 			}
 			else if (((String) s).contains("2009/2010")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15)
 				map09_10.put(valore, s);
 			}
 			else if (((String) s).contains("2010/2011")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15)
 				map10_11.put(valore, s);
 			}
 			else if (((String) s).contains("2011/2012")){
 				double valore = (double) finalMap.get(s)*(-1);
-				//if (((String) s).length() > 15)
 				map11_12.put(valore, s);
 			}
 		}
@@ -361,14 +341,61 @@ public class _3Job {
 		// END: managing data and making cleaning operations:
 
 		// Printing raws one by one, 3 for each season.
-		System.out.println("LISTA FINALE " + listaFinale);
-		for (LinkedList<String> list : listaFinale) {
-			for (int i = 0; i < 3; i++) {
-				String[] array = list.toArray(new String[list.size()]);
-				System.out.println(i+1 + " " + array[i]);
+
+		// aggiungo una lista vuota alla fine così non mi va in indexBoundException
+		listaFinale.add(new LinkedList<String>());
+		LinkedList<Map<String, LinkedList<String>>> listMapTotalPlayerSeason = new LinkedList<Map<String, LinkedList<String>>>();
+		for (int i = 0; i < listaFinale.size()-1; i++) {
+			List<String> actualList = listaFinale.get(i); 
+			List<String> nextList = listaFinale.get(i+1);
+			for (String sActual : actualList) {
+				Map<String, LinkedList<String>> mapPlayerTemp = new HashMap<String, LinkedList<String>>();
+				String[] tempStringSplitted = sActual.split(" ");
+				String player_seasonActual = "";
+				for (int j = 1; j < tempStringSplitted.length-1; j++) {
+					player_seasonActual += tempStringSplitted[j].concat(" ");	
+				}
+
+				for (String sNext : nextList) {
+					String[] tempStringSplittedNext = sNext.split(" ");
+					String player_seasonNext = "";
+					for (int j = 1; j < tempStringSplittedNext.length-1; j++) {
+						player_seasonNext += tempStringSplittedNext[j].concat(" ");	
+					}
+					//System.out.println("actual " + player_seasonActual + " next " + player_seasonNext);
+					if (player_seasonActual.equals(player_seasonNext)){
+						if (!mapPlayerTemp.containsKey(player_seasonActual)) {
+							LinkedList<String> list = new LinkedList<String>();
+							list.add(sActual);
+							list.add(sNext);
+							mapPlayerTemp.put(player_seasonActual, list);
+						}
+						else
+							mapPlayerTemp.get(player_seasonActual).add(sNext);
+					}
+				}
+				listMapTotalPlayerSeason.add(mapPlayerTemp);
 			}
-			System.out.println("--------------------");
 		}
+
+		Map<String,LinkedList<String>> listaMap = new HashMap<String, LinkedList<String>>();
+		
+		for (Map<String, LinkedList<String>> map : listMapTotalPlayerSeason) {
+			for (String name : map.keySet()) {
+				if (!listaMap.containsKey(name))
+					listaMap.put(name, map.get(name));
+				else {
+					List<String> l = new LinkedList<String>();
+					for (String s : map.get(name))
+						l.add(s);
+					LinkedList<String> lTot = new LinkedList<String>();
+					lTot.addAll(l);
+					lTot.addAll(listaMap.get(name));
+					listaMap.put(name, lTot);
+				}
+			}
+		}
+		System.out.println("LISTA ROTTA " + listaMap);
 
 		sc.stop();
 		long estimatedTime = System.currentTimeMillis() - startTime;

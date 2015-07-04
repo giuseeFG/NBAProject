@@ -34,7 +34,7 @@ import scala.Tuple2;
  *  
  *  @input  JSON format  
  *  @author Giuseppe Matrella
- */ 
+ */
 
 public class _TrendYearJob {
 	@SuppressWarnings("resource")
